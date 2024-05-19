@@ -9,10 +9,65 @@ import datetime
 
 DB_NAME = 'members'
 
+#Forma_BI11_22042024
+
 bot = telebot.TeleBot(get_id_data(DB_NAME, 'system')) 
 
-def create_excel_table():
-    wb = openpyxl.Workbook()
+def sync_first_biology_list(file, id):
+    wb = openpyxl.load_workbook(filename=f'{file}.xlsx')
+    active_sheet = wb['1']
+    
+    students_answers = get_item_data(DB_NAME, id, 'students_answers')
+    students = list(students_answers.keys())
+    print(f'Список студентов: {students}')
+    
+    props = {'D': '2', 'E': '2', 'F': '3', 'G': '4', 'H': '5', 'I': '9', 'J': '13'}
+    
+    for i in range(8, len(students) + 8):
+        for l in ['D', 'E', 'F', 'G', 'H', 'I', 'J']: #2 2 3 4 5 9 13
+            active_sheet[f'{l}{i}'] = students_answers[students[i - 8]][props[l]]
+            print(f'Координаты: {l}{i}')
+            print(f'Студент: {students[i - 8]}')
+            print(f'Задание: {[props[l]]}')
+            print(f'Ответ: {students_answers[students[i - 8]][props[l]]}')
+    
+    print('Сохраняем...')
+    wb.save(filename=f'{file}.xlsx')
+    print('Готово!')
+    
+def sync_students_list(file, id):
+    wb = openpyxl.load_workbook(filename=f'{file}.xlsx')
+    active_sheet = wb['Список']
+    
+    students_variants = get_item_data(DB_NAME, id, 'students_variants')
+    students_notes = get_item_data(DB_NAME, id, 'students_notes')
+    students = list(students_variants.keys())
+    print(f'Список студентов: {students}')
+    for i in range(8, len(students) + 8):
+        print(f'Координаты: В{i}')
+        print(f'Студент: {students[i - 8]}')
+        active_sheet[f'B{i}'] = students[i - 8]
+        
+    for i in range(8, len(students) + 8):
+        active_sheet[f'C{i}'] = int(students_variants[students[i - 8]])
+        print(f'Координаты: C{i}')
+        print(f'Студент: {students[i - 8]}')
+        print(f'Вариант: {students_variants[students[i - 8]]}')
+        
+    for i in range(8, len(students) + 8):
+        active_sheet[f'D{i}'] = int(students_notes[students[i - 8]])
+        print(f'Координаты: D{i}')
+        print(f'Студент: {students[i - 8]}')
+        print(f'Оценка: {students_notes[students[i - 8]]}')
+    
+    print('Сохраняем...')
+    wb.save(filename=f'{file}_py.xlsx')
+    print('Готово!')
+        
+@bot.message_handler(commands=['test'])
+def test(message):
+    sync_students_list('Forma_BI11_22042024', '5776829003')
+    sync_first_biology_list('Forma_BI11_22042024_py', '5776829003')
     
 @bot.message_handler(commands=['start'])
 def start(message):
@@ -79,19 +134,21 @@ def func(message):
         if not students_notes:
             students_notes = {}
             
-        if len(message.text.split('-')[0].split()) > 3:
-            bot.send_message(message.chat.id, text='Неверный формат ввода. Введите в формате ФИО - Вариант - Оценка за последний период')
-            return
+        for student in message.text.split('\n'):
+            
+            if len(student.split('-')[0].split()) > 3:
+                bot.send_message(message.chat.id, text='Неверный формат ввода. Введите в формате ФИО - Вариант - Оценка за последний период')
+                return
         
-        try:    
-            students_notes[message.text.split('-', 2)[0].strip()] = message.text.split('-', 2)[2].strip()
-            students[message.text.split('-', 2)[0].strip()] = message.text.split('-', 2)[1].strip()
-        except:
-            bot.send_message(message.chat.id, text='Неверный формат ввода. Введите в формате ФИО - Вариант - Оценка за последний период')
-            return
-        
-        give_item_data(DB_NAME, str(message.from_user.id), 'students_notes', students_notes)
-        give_item_data(DB_NAME, str(message.from_user.id), 'students_variants', students)
+            try:    
+                students_notes[student.split('-', 2)[0].strip()] = student.split('-', 2)[2].strip()
+                students[student.split('-', 2)[0].strip()] = student.split('-', 2)[1].strip()
+            except:
+                bot.send_message(message.chat.id, text='Неверный формат ввода. Введите в формате ФИО - Вариант - Оценка за последний период')
+                return
+            
+            give_item_data(DB_NAME, str(message.from_user.id), 'students_notes', students_notes)
+            give_item_data(DB_NAME, str(message.from_user.id), 'students_variants', students)
         
         variants_count = max(list(students.values()))
         students_count = len(list(students.keys()))
